@@ -208,4 +208,4 @@ jobs:
             dist/minecraft-schematic-generator*/minecraft-schematic-generator*
             dist/minecraft-schematic-generator-termux-arm64/minecraft-schematic-generator-termux-arm64
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GIT }}
