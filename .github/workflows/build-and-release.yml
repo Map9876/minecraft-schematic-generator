@@ -123,22 +123,6 @@ jobs:
         with:
           name: ${{ matrix.output_name }}
           path: ${{ matrix.termux && 'termux_dist' || 'dist' }}/${{ matrix.output_name }}
-          
-      - name: Upload artifact 
-        if: ${{ !matrix.cuda }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.output_name }}
-          path: |
-            ${{ matrix.termux && 'termux_dist' || 'dist' }}/${{ matrix.output_name }}          
-  # ⬅️ NEW end
-  
-      - name: Upload artifact
-        if: ${{ !matrix.cuda }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.output_name }}
-          path: dist/${{ matrix.output_name }}
 
   create-release-tag:
     needs: build
