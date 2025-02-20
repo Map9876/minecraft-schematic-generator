@@ -33,6 +33,13 @@ jobs:
             output_name: minecraft-schematic-generator-linux
             torch_index: cu124
             cuda: true
+            
+          - os: ubuntu-latest            
+            output_name: minecraft-schematic-generator-termux 
+            torch_index: cpu 
+            cuda: false 
+            termux: true  # 新增自定义标识 
+    
 
     runs-on: ${{ matrix.os }}
 
@@ -44,6 +51,24 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Setup cross-compilation environment  # ⬅️ NEW start
+        if: matrix.termux 
+        run: |
+          sudo apt-get update 
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu 
+          sudo ln -s /usr/bin/aarch64-linux-gnu-gcc /usr/bin/aarch64-linux-gnu-gcc-12 
+ 
+      - name: Install PyTorch 
+        run: |
+          python -m pip install --upgrade pip 
+          if [ "${{ matrix.termux }}" = "true" ]; then 
+            pip install torch==2.3.0+cpu --index-url https://download.pytorch.org/whl/${{ matrix.torch_index }}
+          else 
+            pip install torch --index-url https://download.pytorch.org/whl/${{ matrix.torch_index }}
+          fi           
+         #   ⬅️ NEW end
+         
+         
       - name: Install PyTorch
         run: |
           python -m pip install --upgrade pip
@@ -67,23 +92,37 @@ jobs:
         run: |
           pyinstaller --onefile --name ${{ matrix.output_name }} --copy-metadata safetensors --collect-data minecraft_schematic_generator app/main.py
 
-      - name: Upload to Hugging Face
-        if: matrix.cuda
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      - name: Build binary    # ⬅️ NEW  start
         run: |
-          python -c "
-          from huggingface_hub import HfApi
-          api = HfApi()
-
-          api.upload_file(
-              path_or_fileobj='dist/${{ matrix.output_name }}',
-              path_in_repo=f'binaries/${{ matrix.output_name }}',
-              repo_id='mmmfrieddough/minecraft-schematic-generator',
-              token='${{ secrets.HF_TOKEN }}'
-          )
-          "
-
+          if [ "${{ matrix.termux }}" = "true" ]; then 
+            # ⬅️ NEW 交叉编译配置 
+            export CC=aarch64-linux-gnu-gcc 
+            export CXX=aarch64-linux-gnu-g++
+            pyinstaller --onefile \
+              --name ${{ matrix.output_name }} \
+              --target-arch arm64 \
+              --copy-metadata safetensors \
+              --collect-data minecraft_schematic_generator \
+              --workpath build-termux \
+              --specpath termux_spec \
+              --distpath termux_dist \
+              app/main.py 
+          else 
+            pyinstaller --onefile \
+              --name ${{ matrix.output_name }} \
+              --copy-metadata safetensors \
+              --collect-data minecraft_schematic_generator \
+              app/main.py 
+          fi 
+      - name: Upload artifact 
+        if: ${{ !matrix.cuda }}
+        uses: actions/upload-artifact@v3 
+        with:
+          name: ${{ matrix.output_name }}
+          path: |
+            ${{ matrix.termux && 'termux_dist' || 'dist' }}/${{ matrix.output_name }}          
+  # ⬅️ NEW end
+  
       - name: Upload artifact
         if: ${{ !matrix.cuda }}
         uses: actions/upload-artifact@v3
@@ -167,5 +206,6 @@ jobs:
           prerelease: false
           files: |
             dist/minecraft-schematic-generator*/minecraft-schematic-generator*
+            dist/minecraft-schematic-generator-termux-arm64/minecraft-schematic-generator-termux-arm64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
