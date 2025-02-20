@@ -4,6 +4,7 @@ on:
   release:
     types: [created]
   push:
+
 permissions:
   contents: write
   discussions: write
@@ -61,6 +62,7 @@ jobs:
       - name: Install PyTorch 
         shell: bash
         run: |
+        
           python -m pip install --upgrade pip 
           if [ "${{ matrix.termux }}" = "true" ]; then 
             pip install torch==2.3.0+cpu --index-url https://download.pytorch.org/whl/${{ matrix.torch_index }}
@@ -89,15 +91,12 @@ jobs:
           echo "__version__ = \"${VERSION}\"" >> src/minecraft_schematic_generator/version.py
           echo "GITHUB_REPO = \"mmmfrieddough/minecraft-schematic-generator\"" >> src/minecraft_schematic_generator/version.py
 
+# Remove the first Build binary step since it's duplicated
       - name: Build binary
-        run: |
-          pyinstaller --onefile --name ${{ matrix.output_name }} --copy-metadata safetensors --collect-data minecraft_schematic_generator app/main.py
-
-      - name: Build binary    # ⬅️ NEW  start
-        shell: bash      
+        shell: bash
         run: |
           if [ "${{ matrix.termux }}" = "true" ]; then 
-            # ⬅️ NEW 交叉编译配置 
+            # Cross-compilation configuration for Termux
             export CC=aarch64-linux-gnu-gcc 
             export CXX=aarch64-linux-gnu-g++
             pyinstaller --onefile \
@@ -116,9 +115,18 @@ jobs:
               --collect-data minecraft_schematic_generator \
               app/main.py 
           fi 
+
+      # Single Upload artifact step that handles both Termux and non-Termux cases
+      - name: Upload artifact
+        if: ${{ !matrix.cuda }}  # Only upload non-CUDA artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.output_name }}
+          path: ${{ matrix.termux && 'termux_dist' || 'dist' }}/${{ matrix.output_name }}
+          
       - name: Upload artifact 
         if: ${{ !matrix.cuda }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3 
         with:
           name: ${{ matrix.output_name }}
           path: |
@@ -127,7 +135,7 @@ jobs:
   
       - name: Upload artifact
         if: ${{ !matrix.cuda }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.output_name }}
           path: dist/${{ matrix.output_name }}
@@ -141,25 +149,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install huggingface-hub
-        run: |
-          python -m pip install --upgrade pip
-          pip install huggingface-hub
 
-      - name: Create HF Tag
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          python -c "
-          from huggingface_hub import HfApi
-          api = HfApi()
-
-          api.create_tag(
-              repo_id='mmmfrieddough/minecraft-schematic-generator',
-              tag='${{ github.ref_name }}',
-              token='${{ secrets.HF_TOKEN }}'
-          )
-          "
 
   release:
     needs: build
