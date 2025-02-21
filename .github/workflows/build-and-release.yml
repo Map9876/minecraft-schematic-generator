@@ -88,12 +88,12 @@ jobs:
       - name: Build binary
         shell: bash
         run: |
-          if [[ "${{ matrix.termux }}" == "true" ]]; then 
-            # Cross-compilation configuration for Termux/Android ARM64
+          if [ "${{ matrix.termux }}" = "true" ]; then
+            # 为Termux/Android ARM64配置交叉编译环境
             export TERMUX_BUILD=1
             mkdir -p termux_build termux_dist
 
-            # Configure cross-compilation environment variables
+            # 设置交叉编译的环境变量
             export CC=aarch64-linux-gnu-gcc
             export CXX=aarch64-linux-gnu-g++
             export CFLAGS="-fPIC"
@@ -103,8 +103,10 @@ jobs:
             export TARGET_OS=android
             export PYTHONPATH=$(pwd)
 
-            # Create custom PyInstaller spec file for Termux
-            cat > termux.spec << EOL
+            # 创建Termux专用的PyInstaller配置文件
+            cat > termux.spec << 'EOL'
+            from PyInstaller.building.build_main import Analysis, PYZ, EXE
+
             a = Analysis(
                 ['app/main.py'],
                 pathex=[],
@@ -117,7 +119,9 @@ jobs:
                 excludes=[],
                 noarchive=False,
             )
+            
             pyz = PYZ(a.pure)
+            
             exe = EXE(
                 pyz,
                 a.scripts,
@@ -139,20 +143,19 @@ jobs:
             )
             EOL
 
-            # Build using custom spec file
+            # 使用配置文件构建
             pyinstaller --clean \
               --workpath termux_build \
               --distpath termux_dist \
               --target-arch aarch64 \
-              --python-option "import sys; sys.platform='linux'" \
               termux.spec
 
-            # Verify the binary architecture
+            # 验证生成的二进制文件架构
             file termux_dist/minecraft-schematic-generator-termux
-
           else
+            # 其他平台的标准构建
             pyinstaller --onefile \
-              --name ${{ matrix.output_name }} \
+              --name "${{ matrix.output_name }}" \
               --copy-metadata safetensors \
               --collect-data minecraft_schematic_generator \
               app/main.py
