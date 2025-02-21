@@ -87,12 +87,8 @@ jobs:
 
       - name: Build binary
         shell: bash
-        env:
-          pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.8/arm64
-          PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.8/arm64/lib/pkgconfig
-          Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.8/arm64
         run: |
-          if [ "${{ matrix.termux }}" = "true" ]; then
+            if [[ "${{ matrix.termux }}" == "true" ]]; then
             export TERMUX_BUILD=1
             mkdir -p termux_build termux_dist
             export CC=aarch64-linux-gnu-gcc
