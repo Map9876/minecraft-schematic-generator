@@ -87,13 +87,14 @@ jobs:
 
       - name: Build binary
         shell: bash
+        env:
+          pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.8/arm64
+          PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.8/arm64/lib/pkgconfig
+          Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.8/arm64
         run: |
           if [ "${{ matrix.termux }}" = "true" ]; then
-            # 为Termux/Android ARM64配置交叉编译环境
             export TERMUX_BUILD=1
             mkdir -p termux_build termux_dist
-
-            # 设置交叉编译的环境变量
             export CC=aarch64-linux-gnu-gcc
             export CXX=aarch64-linux-gnu-g++
             export CFLAGS="-fPIC"
@@ -102,58 +103,51 @@ jobs:
             export TARGET_ARCH=aarch64
             export TARGET_OS=android
             export PYTHONPATH=$(pwd)
-
-            # 创建Termux专用的PyInstaller配置文件
             cat > termux.spec << 'EOL'
-from PyInstaller.building.build_main import Analysis, PYZ, EXE
+            from PyInstaller.building.build_main import Analysis, PYZ, EXE
 
-a = Analysis(
-    ['app/main.py'],
-    pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=[],
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=[],
-    noarchive=False,
-)
+            a = Analysis(
+                ['app/main.py'],
+                pathex=[],
+                binaries=[],
+                datas=[],
+                hiddenimports=[],
+                hookspath=[],
+                hooksconfig={},
+                runtime_hooks=[],
+                excludes=[],
+                noarchive=False
+            )
 
-pyz = PYZ(a.pure)
+            pyz = PYZ(a.pure)
 
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.datas,
-    [],
-    name='minecraft-schematic-generator-termux',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=True,
-    upx=True,
-    runtime_tmpdir=None,
-    console=True,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch='aarch64',
-    codesign_identity=None,
-    entitlements_file=None,
-)
-EOL
-
-            # 使用配置文件构建
+            exe = EXE(
+                pyz,
+                a.scripts,
+                a.binaries,
+                a.datas,
+                [],
+                name='minecraft-schematic-generator-termux',
+                debug=False,
+                bootloader_ignore_signals=False,
+                strip=True,
+                upx=True,
+                runtime_tmpdir=None,
+                console=True,
+                disable_windowed_traceback=False,
+                argv_emulation=False,
+                target_arch='aarch64',
+                codesign_identity=None,
+                entitlements_file=None
+            )
+            EOL
             pyinstaller --clean \
               --workpath termux_build \
               --distpath termux_dist \
               --target-arch aarch64 \
               termux.spec
-
-            # 验证生成的二进制文件架构
             file termux_dist/minecraft-schematic-generator-termux
           else
-            # 其他平台的标准构建
             pyinstaller --onefile \
               --name "${{ matrix.output_name }}" \
               --copy-metadata safetensors \
