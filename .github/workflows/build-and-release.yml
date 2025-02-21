@@ -83,6 +83,7 @@ jobs:
           pip install pyinstaller ${{ matrix.cuda && 'huggingface_hub' || '' }}
 
       - name: Generate version file
+        shell: bash
         run: |
           VERSION=${{ github.ref_name }}
           # Remove 'v' prefix if present
