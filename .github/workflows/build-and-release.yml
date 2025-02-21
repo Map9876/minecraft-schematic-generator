@@ -34,16 +34,14 @@ jobs:
             output_name: minecraft-schematic-generator-linux
             torch_index: cu124
             cuda: true
-            
-          - os: ubuntu-latest            
-            output_name: minecraft-schematic-generator-termux 
-            torch_index: cpu 
-            cuda: false 
-            termux: true  # 新增自定义标识 
-    
+          - os: ubuntu-latest
+            output_name: minecraft-schematic-generator-termux
+            torch_index: cpu
+            cuda: false
+            termux: true
 
     runs-on: ${{ matrix.os }}
-
+    
     steps:
       - uses: actions/checkout@v3
 
@@ -52,30 +50,25 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Setup cross-compilation environment  # ⬅️ NEW start
-        if: matrix.termux 
+      - name: Setup cross-compilation environment
+        if: matrix.termux
         run: |
-          sudo apt-get update 
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu 
-          sudo ln -s /usr/bin/aarch64-linux-gnu-gcc /usr/bin/aarch64-linux-gnu-gcc-12 
- 
-      - name: Install PyTorch 
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt-get install -y crossbuild-essential-arm64
+          sudo apt-get install -y python3-pip python3-dev
+          sudo apt-get install -y patchelf
+
+      - name: Install PyTorch
         shell: bash
         run: |
-        
-          python -m pip install --upgrade pip 
-          if [ "${{ matrix.termux }}" = "true" ]; then 
-            pip install torch==2.3.0+cpu --index-url https://download.pytorch.org/whl/${{ matrix.torch_index }}
-          else 
-            pip install torch --index-url https://download.pytorch.org/whl/${{ matrix.torch_index }}
-          fi           
-         #   ⬅️ NEW end
-         
-         
-      - name: Install PyTorch
-        run: |
           python -m pip install --upgrade pip
-          pip install torch --index-url https://download.pytorch.org/whl/${{ matrix.torch_index }}
+          if [ "${{ matrix.termux }}" = "true" ]; then
+            export PYTHONNOUSERSITE=1
+            pip install torch==2.1.0 --index-url https://download.pytorch.org/whl/cpu
+          else
+            pip install torch --index-url https://download.pytorch.org/whl/${{ matrix.torch_index }}
+          fi
 
       - name: Install PyInstaller and dependencies
         run: |
@@ -92,34 +85,81 @@ jobs:
           echo "__version__ = \"${VERSION}\"" >> src/minecraft_schematic_generator/version.py
           echo "GITHUB_REPO = \"mmmfrieddough/minecraft-schematic-generator\"" >> src/minecraft_schematic_generator/version.py
 
-# Remove the first Build binary step since it's duplicated
       - name: Build binary
         shell: bash
         run: |
-          if [ "${{ matrix.termux }}" = "true" ]; then 
-            # Cross-compilation configuration for Termux
-            export CC=aarch64-linux-gnu-gcc 
-            export CXX=aarch64-linux-gnu-g++
-            pyinstaller --onefile \
-              --name ${{ matrix.output_name }} \
-              --target-arch arm64 \
-              --copy-metadata safetensors \
-              --collect-data minecraft_schematic_generator \
-              --workpath build-termux \
-              --specpath termux_spec \
-              --distpath termux_dist \
-              app/main.py 
-          else 
-            pyinstaller --onefile \
-              --name ${{ matrix.output_name }} \
-              --copy-metadata safetensors \
-              --collect-data minecraft_schematic_generator \
-              app/main.py 
-          fi 
+          if [ "${{ matrix.termux }}" = "true" ]; then
+            # Cross-compilation configuration for Termux/Android ARM64
+            export TERMUX_BUILD=1
+            mkdir -p termux_build termux_dist
 
-      # Single Upload artifact step that handles both Termux and non-Termux cases
+            # Configure cross-compilation environment variables
+            export CC=aarch64-linux-gnu-gcc
+            export CXX=aarch64-linux-gnu-g++
+            export CFLAGS="-fPIC"
+            export CXXFLAGS="-fPIC"
+            export LDFLAGS="-pie"
+            export TARGET_ARCH=aarch64
+            export TARGET_OS=android
+            export PYTHONPATH=$(pwd)
+
+            # Create custom PyInstaller spec file for Termux
+            cat > termux.spec << EOL
+            a = Analysis(
+                ['app/main.py'],
+                pathex=[],
+                binaries=[],
+                datas=[],
+                hiddenimports=[],
+                hookspath=[],
+                hooksconfig={},
+                runtime_hooks=[],
+                excludes=[],
+                noarchive=False,
+            )
+            pyz = PYZ(a.pure)
+            exe = EXE(
+                pyz,
+                a.scripts,
+                a.binaries,
+                a.datas,
+                [],
+                name='minecraft-schematic-generator-termux',
+                debug=False,
+                bootloader_ignore_signals=False,
+                strip=True,
+                upx=True,
+                runtime_tmpdir=None,
+                console=True,
+                disable_windowed_traceback=False,
+                argv_emulation=False,
+                target_arch='aarch64',
+                codesign_identity=None,
+                entitlements_file=None,
+            )
+            EOL
+
+            # Build using custom spec file
+            pyinstaller --clean \
+              --workpath termux_build \
+              --distpath termux_dist \
+              --target-arch aarch64 \
+              --python-option "import sys; sys.platform='linux'" \
+              termux.spec
+
+            # Verify the binary architecture
+            file termux_dist/minecraft-schematic-generator-termux
+
+          else
+            pyinstaller --onefile \
+              --name ${{ matrix.output_name }} \
+              --copy-metadata safetensors \
+              --collect-data minecraft_schematic_generator \
+              app/main.py
+          fi
+
       - name: Upload artifact
-        if: ${{ !matrix.cuda }}  # Only upload non-CUDA artifacts
+        if: ${{ !matrix.cuda }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.output_name }}
@@ -133,8 +173,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.12"
-
-
 
   release:
     needs: build
@@ -152,37 +190,40 @@ jobs:
           name: ${{ github.ref_name }}
           body: |
             ## Download Options
-
+            
             ### CUDA Version (Recommended)
             For optimal performance on Windows and Linux, download the CUDA-enabled version (hosted on Hugging Face due to file size limits):
             - [Windows CUDA](https://huggingface.co/mmmfrieddough/minecraft-schematic-generator/resolve/${{ github.ref_name }}/binaries/minecraft-schematic-generator.exe)
             - [Linux CUDA](https://huggingface.co/mmmfrieddough/minecraft-schematic-generator/resolve/${{ github.ref_name }}/binaries/minecraft-schematic-generator-linux)
-
+            
             **Note:** CUDA version requires an NVIDIA GPU but provides significantly faster inference.
-
+            
             ### CPU Version
             For macOS systems (best performance on Apple Silicon):
             - [macOS](dist/minecraft-schematic-generator-mac/minecraft-schematic-generator-mac)
-
+            
             CPU versions for Windows/Linux are available but not recommended due to extremely slow inference times:
             - [Windows CPU](dist/minecraft-schematic-generator.exe/minecraft-schematic-generator.exe)
             - [Linux CPU](dist/minecraft-schematic-generator-linux/minecraft-schematic-generator-linux)
-
+            
+            ### Android/Termux Version
+            - [Termux ARM64](dist/minecraft-schematic-generator-termux/minecraft-schematic-generator-termux)
+            
             ## System Requirements
             - Windows/Linux: NVIDIA GPU strongly recommended
             - macOS: Apple Silicon recommended for best performance
-
+            - Android: ARM64 device running Termux
+            
             ## Server Configuration
             The server can be started with:
             ```bash
             ./minecraft-schematic-generator [options]
             ```
-
+            
             By default, it will run on http://localhost:8000
           draft: false
           prerelease: false
           files: |
             dist/minecraft-schematic-generator*/minecraft-schematic-generator*
-            dist/minecraft-schematic-generator-termux-arm64/minecraft-schematic-generator-termux-arm64
         env:
-          GITHUB_TOKEN: ${{ secrets.GIT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
