@@ -65,7 +65,7 @@ jobs:
           python -m pip install --upgrade pip
           if [ "${{ matrix.termux }}" = "true" ]; then
             export PYTHONNOUSERSITE=1
-            pip install torch==2.1.0 --index-url https://download.pytorch.org/whl/cpu
+            pip install torch==2.6.0+cpu --index-url https://download.pytorch.org/whl/cpu
           else
             pip install torch --index-url https://download.pytorch.org/whl/${{ matrix.torch_index }}
           fi
