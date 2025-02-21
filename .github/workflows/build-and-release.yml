@@ -88,35 +88,35 @@ jobs:
         shell: bash
         run: |
             if [[ "${{ matrix.termux }}" == "true" ]]; then
-            export TERMUX_BUILD=1
-            mkdir -p termux_build termux_dist
-            export CC=aarch64-linux-gnu-gcc
-            export CXX=aarch64-linux-gnu-g++
-            export CFLAGS="-fPIC"
-            export CXXFLAGS="-fPIC"
-            export LDFLAGS="-pie"
-            export TARGET_ARCH=aarch64
-            export TARGET_OS=android
-            export PYTHONPATH=$(pwd)
-            cat > termux.spec << 'EOL'
-            from PyInstaller.building.build_main import Analysis, PYZ, EXE
+              export TERMUX_BUILD=1
+              mkdir -p termux_build termux_dist
+              export CC=aarch64-linux-gnu-gcc
+              export CXX=aarch64-linux-gnu-g++
+              export CFLAGS="-fPIC"
+              export CXXFLAGS="-fPIC"
+              export LDFLAGS="-pie"
+              export TARGET_ARCH=aarch64
+              export TARGET_OS=android
+              export PYTHONPATH=$(pwd)
+              cat > termux.spec << 'EOL'
+              from PyInstaller.building.build_main import Analysis, PYZ, EXE
 
-            a = Analysis(
-                ['app/main.py'],
-                pathex=[],
-                binaries=[],
-                datas=[],
-                hiddenimports=[],
-                hookspath=[],
-                hooksconfig={},
+              a = Analysis(
+                  ['app/main.py'],
+                  pathex=[],
+                  binaries=[],
+                  datas=[],
+                  hiddenimports=[],
+                  hookspath=[],
+                  hooksconfig={},
                 runtime_hooks=[],
-                excludes=[],
-                noarchive=False
-            )
+                  excludes=[],
+                  noarchive=False
+              )
 
-            pyz = PYZ(a.pure)
+              pyz = PYZ(a.pure)
 
-            exe = EXE(
+              exe = EXE(
                 pyz,
                 a.scripts,
                 a.binaries,
@@ -134,14 +134,14 @@ jobs:
                 target_arch='aarch64',
                 codesign_identity=None,
                 entitlements_file=None
-            )
-            EOL
-            pyinstaller --clean \
-              --workpath termux_build \
-              --distpath termux_dist \
-              --target-arch aarch64 \
-              termux.spec
-            file termux_dist/minecraft-schematic-generator-termux
+              )
+              EOL
+              pyinstaller --clean \
+                --workpath termux_build \
+                --distpath termux_dist \
+                --target-arch aarch64 \
+                termux.spec
+              file termux_dist/minecraft-schematic-generator-termux
           else
             pyinstaller --onefile \
               --name "${{ matrix.output_name }}" \
