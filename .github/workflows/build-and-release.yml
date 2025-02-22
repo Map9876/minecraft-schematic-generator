@@ -151,7 +151,7 @@ jobs:
             file termux_dist/minecraft-schematic-generator-termux
       - name: Build binary normal
         shell: bash
-        if: {{ !matrix.termux }}
+        if: ${{ !matrix.termux }}
         run: |
             pyinstaller --onefile \
               --name ${{ matrix.output_name }} \
