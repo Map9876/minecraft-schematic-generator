@@ -1,3 +1,6 @@
+import sys
+sys.platform = 'linux'  # Force Linux platform
+
 a = Analysis(
     ['app/main.py'],
     pathex=[],
@@ -9,8 +12,11 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
+    target_arch='aarch64'  # Set target architecture
 )
+
 pyz = PYZ(a.pure)
+
 exe = EXE(
     pyz,
     a.scripts,
