@@ -110,6 +110,12 @@ jobs:
           export TARGET_ARCH=aarch64
           export TARGET_OS=android
           export PYTHONPATH=$(pwd)
+          cat <<-EOF | sudo tee /etc/apt/sources.list.d/arm64.list >/dev/null
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted
+          EOF
+
           
           # Install cross-compilation dependencies
           sudo dpkg --add-architecture arm64
