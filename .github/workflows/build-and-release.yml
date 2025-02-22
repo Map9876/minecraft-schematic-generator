@@ -87,37 +87,50 @@ jobs:
 
       - name: Build binary termux
         shell: bash
-        if: ${{ matrix.termux == true }}
+        if: ${{ matrix.termux }}
         run: |
-           # Cross-compilation configuration for Termux/Android ARM64
-            export TERMUX_BUILD=1
-            mkdir -p termux_build termux_dist
+          # Cross-compilation configuration for Termux/Android ARM64
+          export TERMUX_BUILD=1
+          mkdir -p termux_build termux_dist hooks
 
-            # Configure cross-compilation environment variables
-            export CC=aarch64-linux-gnu-gcc
-            export CXX=aarch64-linux-gnu-g++
-            export CFLAGS="-fPIC"
-            export CXXFLAGS="-fPIC"
-            export LDFLAGS="-pie"
-            export TARGET_ARCH=aarch64
-            export TARGET_OS=android
-            export PYTHONPATH=$(pwd)
+          # Configure cross-compilation environment variables
+          export CC=aarch64-linux-gnu-gcc
+          export CXX=aarch64-linux-gnu-g++
+          export AR=aarch64-linux-gnu-ar
+          export RANLIB=aarch64-linux-gnu-ranlib
+          export READELF=aarch64-linux-gnu-readelf
+          export STRIP=aarch64-linux-gnu-strip
+          export OBJCOPY=aarch64-linux-gnu-objcopy
+          export OBJDUMP=aarch64-linux-gnu-objdump
+          export LD=aarch64-linux-gnu-ld
 
-            # Create custom PyInstaller spec file for Termux
-            echo "Spec file contents:"
-            cat termux.spec
+          export CFLAGS="-fPIC"
+          export CXXFLAGS="-fPIC"
+          export LDFLAGS="-pie"
+          export TARGET_ARCH=aarch64
+          export TARGET_OS=android
+          export PYTHONPATH=$(pwd)
+          
+          # Install cross-compilation dependencies
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y \
+            libc6:arm64 \
+            libpython3.12:arm64 \
+            zlib1g:arm64 \
+            libbz2-1.0:arm64
 
+          # Build using custom spec file
+          PYTHONPATH=hooks pyinstaller \
+            --clean \
+            --workpath termux_build \
+            --distpath termux_dist \
+            --additional-hooks-dir=hooks \
+            termux.spec
 
-            # Build using custom spec file
-            pyinstaller --clean \
-              --workpath termux_build \
-              --distpath termux_dist \
-              termux.spec
-            echo "Build complete. Checking results:"
-            ls -la termux_dist/
-
-            # Verify the binary architecture
-            file termux_dist/minecraft-schematic-generator-termux || true
+          # Verify the binary architecture
+          echo "Checking binary architecture:"
+          file termux_dist/minecraft-schematic-generator-termux || true
       - name: Build binary normal
         shell: bash
         if: ${{ !matrix.termux }}
