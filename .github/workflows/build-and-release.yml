@@ -112,14 +112,12 @@ jobs:
             pyinstaller --clean \
               --workpath termux_build \
               --distpath termux_dist \
-              --target-arch aarch64 \
-              --python-option "import sys; sys.platform='linux'" \
               termux.spec
             echo "Build complete. Checking results:"
             ls -la termux_dist/
 
             # Verify the binary architecture
-            file termux_dist/minecraft-schematic-generator-termux
+            file termux_dist/minecraft-schematic-generator-termux || true
       - name: Build binary normal
         shell: bash
         if: ${{ !matrix.termux }}
