@@ -1,21 +1,26 @@
+import os
 import sys
-sys.platform = 'linux'  # Force Linux platform
+sys.platform = 'linux'
 
 a = Analysis(
     ['app/main.py'],
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=[],
-    hookspath=[],
+    hiddenimports=[
+        'termux',
+    ],
+    hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
-    target_arch='aarch64'  # Set target architecture
 )
 
-pyz = PYZ(a.pure)
+# Force AArch64 architecture
+a.binaries = [(x, y, z) for (x, y, z) in a.binaries if not x.startswith('libpython')]
+
+pyz = PYZ(a.pure, cipher=None)
 
 exe = EXE(
     pyz,
@@ -23,16 +28,17 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
+    exclude_binaries=False,
     name='minecraft-schematic-generator-termux',
     debug=False,
     bootloader_ignore_signals=False,
     strip=True,
     upx=True,
-    runtime_tmpdir=None,
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch='aarch64',
+    runtime_tmpdir=None,
     codesign_identity=None,
     entitlements_file=None,
 )
