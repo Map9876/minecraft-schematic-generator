@@ -104,7 +104,7 @@ jobs:
             export PYTHONPATH=$(pwd)
 
             # Create custom PyInstaller spec file for Termux
-            cat > termux.spec << EOL
+            cat > termux.spec << 'EOL'
             a = Analysis(
                 ['app/main.py'],
                 pathex=[],
