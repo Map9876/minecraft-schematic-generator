@@ -87,7 +87,7 @@ jobs:
 
       - name: Build binary termux
         shell: bash
-        if: ${{ matrix.termux }}
+        if: ${{ matrix.termux == true }}
         run: |
            # Cross-compilation configuration for Termux/Android ARM64
             export TERMUX_BUILD=1
@@ -104,7 +104,7 @@ jobs:
             export PYTHONPATH=$(pwd)
 
             # Create custom PyInstaller spec file for Termux
-            cat > termux.spec << 'EOL'
+            cat << 'END_OF_SPEC' > termux.spec
             a = Analysis(
                 ['app/main.py'],
                 pathex=[],
@@ -137,7 +137,11 @@ jobs:
                 codesign_identity=None,
                 entitlements_file=None,
             )
-            EOL
+            END_OF_SPEC
+
+            echo "Spec file contents:"
+            cat termux.spec
+
 
             # Build using custom spec file
             pyinstaller --clean \
@@ -146,6 +150,8 @@ jobs:
               --target-arch aarch64 \
               --python-option "import sys; sys.platform='linux'" \
               termux.spec
+            echo "Build complete. Checking results:"
+            ls -la termux_dist/
 
             # Verify the binary architecture
             file termux_dist/minecraft-schematic-generator-termux
