@@ -87,7 +87,7 @@ jobs:
 
       - name: Build binary termux
         shell: bash
-        if: matrix.termux
+        if: ${{ matrix.termux }}
         run: |
            # Cross-compilation configuration for Termux/Android ARM64
             export TERMUX_BUILD=1
