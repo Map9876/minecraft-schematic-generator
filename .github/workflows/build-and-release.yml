@@ -85,59 +85,75 @@ jobs:
           echo "__version__ = \"${VERSION}\"" >> src/minecraft_schematic_generator/version.py
           echo "GITHUB_REPO = \"mmmfrieddough/minecraft-schematic-generator\"" >> src/minecraft_schematic_generator/version.py
 
-      - name: Build binary termux
+      - name: Build Termux binary
+        if: matrix.termux
         shell: bash
-        if: ${{ matrix.termux }}
         run: |
-          # Cross-compilation configuration for Termux/Android ARM64
-          export TERMUX_BUILD=1
-          mkdir -p termux_build termux_dist hooks
+          # 配置交叉编译环境
+          export ARCH=arm64
+          export TARGET_OS=android
+          mkdir -p termux_build
 
-          # Configure cross-compilation environment variables
+          # 设置工具链
           export CC=aarch64-linux-gnu-gcc
           export CXX=aarch64-linux-gnu-g++
           export AR=aarch64-linux-gnu-ar
-          export RANLIB=aarch64-linux-gnu-ranlib
-          export READELF=aarch64-linux-gnu-readelf
           export STRIP=aarch64-linux-gnu-strip
-          export OBJCOPY=aarch64-linux-gnu-objcopy
-          export OBJDUMP=aarch64-linux-gnu-objdump
-          export LD=aarch64-linux-gnu-ld
 
-          export CFLAGS="-fPIC"
-          export CXXFLAGS="-fPIC"
-          export LDFLAGS="-pie"
-          export TARGET_ARCH=aarch64
-          export TARGET_OS=android
-          export PYTHONPATH=$(pwd)
-          cat <<-EOF | sudo tee /etc/apt/sources.list.d/arm64.list >/dev/null
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted universe multiverse
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse
+          # 配置APT源（关键修复点）
+          sudo tee /etc/apt/sources.list.d/arm64.list >/dev/null <<EOF
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse
           EOF
 
-          
-          # Install cross-compilation dependencies
+          # 安装ARM64依赖
           sudo dpkg --add-architecture arm64
-          sudo apt-get update
+          sudo apt-get update --allow-releaseinfo-change
           sudo apt-get install -y \
-            libc6:arm64 \
             libpython3.12:arm64 \
             zlib1g:arm64 \
-            libbz2-1.0:arm64
+            libssl3:arm64 \
+            libffi8:arm64 \
+            libopenblas-dev:arm64
 
-          # Build using custom spec file
-          PYTHONPATH=hooks pyinstaller \
+          # 创建隔离的构建环境
+          python -m venv termux_venv
+          source termux_venv/bin/activate
+
+          # 安装PyInstaller和依赖（关键路径）
+          pip install --upgrade pip
+          pip install \
+            --target termux_venv/lib/python3.12/site-packages \
+            --platform linux_aarch64 \
+            --only-binary=:all: \
+            pyinstaller \
+            torch==2.6.0+cpu \
+            numpy
+
+          # 使用QEMU运行PyInstaller（核心修复）
+          cp /usr/bin/qemu-aarch64-static termux_venv/bin/
+          export QEMU_LD_PREFIX=/usr/aarch64-linux-gnu
+
+          # 执行交叉编译打包
+          PYTHONPATH=termux_venv/lib/python3.12/site-packages \
+          pyinstaller \
             --clean \
             --workpath termux_build \
             --distpath termux_dist \
+            --specpath termux_build \
             --additional-hooks-dir=hooks \
+            --runtime-hook=termux_venv/lib/python3.12/site-packages/PyInstaller/hooks/rthooks/pyi_rth_pkgutil.py \
             termux.spec
 
-          # Verify the binary architecture
-          echo "Checking binary architecture:"
-          file termux_dist/minecraft-schematic-generator-termux || true
+          # 验证二进制文件
+          echo "===== Binary Architecture ====="
+          file termux_dist/minecraft-schematic-generator-termux
+          echo -e "\n===== Dynamic Dependencies ====="
+          patchelf --print-needed termux_dist/minecraft-schematic-generator-termux
+
+      # ========== 其他构建步骤保持不变 ==========
       - name: Build binary normal
         shell: bash
         if: ${{ !matrix.termux }}
