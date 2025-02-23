@@ -111,9 +111,10 @@ jobs:
           export TARGET_OS=android
           export PYTHONPATH=$(pwd)
           cat <<-EOF | sudo tee /etc/apt/sources.list.d/arm64.list >/dev/null
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-security main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ jammy-backports main restricted universe multiverse
           EOF
 
           
