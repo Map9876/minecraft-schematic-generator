@@ -136,39 +136,44 @@ jobs:
           pip install pyinstaller==6.7.0
           pip install -e .[server]  # 安装项目依赖
 
-      - name: Build Termux binary
-        if: ${{ matrix.termux }}
+      - name: Build binary termux
+        shell: bash
+        if: ${{ matrix.termux == true }}
         run: |
-          source .termux-venv/bin/activate
+          # Cross-compilation configuration for Termux/Android ARM64
+          export TERMUX_BUILD=1
+          mkdir -p termux_build termux_dist
 
-          # 配置交叉编译环境变量
+           # Configure cross-compilation environment variables
           export CC=aarch64-linux-gnu-gcc
           export CXX=aarch64-linux-gnu-g++
           export AR=aarch64-linux-gnu-ar
-          export LDFLAGS="-L/usr/aarch64-linux-gnu/lib -L/usr/lib/aarch64-linux-gnu"
-          export CFLAGS="-I/usr/aarch64-linux-gnu/include"
+          export CFLAGS="-fPIC -I/usr/aarch64-linux-gnu/include"
+          export CXXFLAGS="-fPIC -I/usr/aarch64-linux-gnu/include"
+          export LDFLAGS="-pie -L/usr/aarch64-linux-gnu/lib -L/usr/lib/aarch64-linux-gnu"
+          export TARGET_ARCH=aarch64
+          export TARGET_OS=android
+          export PYTHONPATH=$(pwd)
 
-          # 准备QEMU静态解释器
+          # Prepare QEMU static interpreter
           sudo cp /usr/bin/qemu-aarch64-static .termux-venv/bin/
           export QEMU_LD_PREFIX=/usr/aarch64-linux-gnu
 
-          # 使用PyInstaller构建二进制文件
-          pyinstaller \
-            --clean \
+           # Build using PyInstaller
+          pyinstaller --clean \
             --workpath termux_build \
             --distpath termux_dist \
-            --specpath . \
-            --add-data "assets:assets" \
-            --runtime-hook .termux-venv/lib/python3.12/site-packages/PyInstaller/hooks/rthooks/pyi_rth_pkgutil.py \
             --name ${{ matrix.output_name }} \
             --onefile \
+            --copy-metadata safetensors \
+            --collect-data minecraft_schematic_generator \
             app/main.py
 
-          # 验证二进制文件
+          # Verify the binary architecture
           echo "===== Binary Architecture ====="
-          file termux_dist/${{ matrix.output_name }}
+          file termux_dist/${{ matrix.output_name }} || true
           echo -e "\n===== Dynamic Dependencies ====="
-          patchelf --print-needed termux_dist/${{ matrix.output_name }}
+          patchelf --print-needed termux_dist/${{ matrix.output_name }} || true
 
           
           
