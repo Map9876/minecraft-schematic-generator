@@ -252,3 +252,5 @@ jobs:
             dist/minecraft-schematic-generator*/minecraft-schematic-generator*
         env:
           GITHUB_TOKEN: ${{ secrets.GIT }}       
+
+          
