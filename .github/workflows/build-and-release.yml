@@ -191,22 +191,8 @@ jobs:
           name: ${{ matrix.output_name }}
           path: ${{ matrix.termux && 'termux_dist' || 'dist' }}/${{ matrix.output_name }}
 
-  create-release-tag:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
+  
 
       - name: Create Release
         id: create_release
@@ -253,34 +239,3 @@ jobs:
             dist/minecraft-schematic-generator*/minecraft-schematic-generator*
         env:
           GITHUB_TOKEN: ${{ secrets.GIT }}       
-
-jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          # 其他构建配置保持不变
-          - os: ubuntu-latest
-            output_name: minecraft-schematic-generator-termux
-            torch_index: cpu
-            cuda: false
-            termux: true
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
-
-
-
-      - name: Upload Termux artifact
-        if: ${{ matrix.termux }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.output_name }}
-          path: termux_dist/${{ matrix.output_name }}          
