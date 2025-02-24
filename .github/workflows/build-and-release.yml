@@ -85,8 +85,19 @@ jobs:
           echo "__version__ = \"${VERSION}\"" >> src/minecraft_schematic_generator/version.py
           echo "GITHUB_REPO = \"mmmfrieddough/minecraft-schematic-generator\"" >> src/minecraft_schematic_generator/version.py
       - name: Setup cross-compilation environment
-        if:  ${{ matrix.termux }}
+        if: ${{ matrix.termux }}
         run: |
+          # 安装交叉编译工具链
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu \
+            crossbuild-essential-arm64 \
+            qemu-user-static \
+            binutils-aarch64-linux-gnu \
+            libc6-dev-arm64-cross
+
+          # 添加ARM64架构支持
           sudo dpkg --add-architecture arm64
           sudo tee /etc/apt/sources.list.d/arm64.list >/dev/null <<EOF
           deb [arch=amd64] http://archive.ubuntu.com/ubuntu noble main restricted
@@ -97,19 +108,8 @@ jobs:
           deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports noble-security main restricted universe multiverse
           EOF
 
-
+          # 更新包列表并安装ARM64运行时库
           sudo apt-get update -o APT::Architecture="amd64" -o APT::Architectures="amd64 arm64"
-          sudo apt-get install -y \
-            build-essential \
-            crossbuild-essential-arm64 \
-            qemu-user-static \
-            binutils-aarch64-linux-gnu \
-            libc6-dev-arm64-cross
-
-      - name: Install ARM64 dependencies
-        if: ${{ matrix.termux }}
-        run: |
-          # 安装ARM64架构的运行时库
           sudo apt-get install -y \
             libpython3.12-dev:arm64 \
             zlib1g:arm64 \
@@ -117,16 +117,29 @@ jobs:
             libffi8:arm64 \
             libopenblas-dev:arm64 \
             libatomic1:arm64
-      - name: Build Termux binary
+
+      - name: Install PyTorch for Termux
         if: ${{ matrix.termux }}
         run: |
-          # 配置隔离构建环境
+          # 创建隔离的虚拟环境
           python -m venv .termux-venv
           source .termux-venv/bin/activate
 
-          # 安装构建工具
-          pip install --upgrade pip wheel setuptools
+          # 安装PyTorch（CPU版本）
+          pip install --upgrade pip
+          pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install PyInstaller and project dependencies
+        if: ${{ matrix.termux }}
+        run: |
+          source .termux-venv/bin/activate
           pip install pyinstaller==6.7.0
+          pip install -e .[server]  # 安装项目依赖
+
+      - name: Build Termux binary
+        if: ${{ matrix.termux }}
+        run: |
+          source .termux-venv/bin/activate
 
           # 配置交叉编译环境变量
           export CC=aarch64-linux-gnu-gcc
@@ -135,20 +148,11 @@ jobs:
           export LDFLAGS="-L/usr/aarch64-linux-gnu/lib -L/usr/lib/aarch64-linux-gnu"
           export CFLAGS="-I/usr/aarch64-linux-gnu/include"
 
-          # 安装Python依赖（ARM64架构）
-          pip install \
-            --platform linux_aarch64 \
-            --target=.termux-venv/lib/python3.12/site-packages \
-            --only-binary=:all: \
-            torch==2.6.0+cpu \
-            numpy==1.26.4 \
-            pandas==2.2.1
-
           # 准备QEMU静态解释器
           sudo cp /usr/bin/qemu-aarch64-static .termux-venv/bin/
           export QEMU_LD_PREFIX=/usr/aarch64-linux-gnu
 
-          # 执行PyInstaller构建
+          # 使用PyInstaller构建二进制文件
           pyinstaller \
             --clean \
             --workpath termux_build \
@@ -156,13 +160,15 @@ jobs:
             --specpath . \
             --add-data "assets:assets" \
             --runtime-hook .termux-venv/lib/python3.12/site-packages/PyInstaller/hooks/rthooks/pyi_rth_pkgutil.py \
-            ${SPEC_FILE}
+            --name ${{ matrix.output_name }} \
+            --onefile \
+            app/main.py
 
           # 验证二进制文件
           echo "===== Binary Architecture ====="
-          file termux_dist/${ARTIFACT_NAME}${ARTIFACT_SUFFIX}
+          file termux_dist/${{ matrix.output_name }}
           echo -e "\n===== Dynamic Dependencies ====="
-          patchelf --print-needed termux_dist/${ARTIFACT_NAME}${ARTIFACT_SUFFIX}
+          patchelf --print-needed termux_dist/${{ matrix.output_name }}
 
           
           
@@ -248,4 +254,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GIT }}       
 
-          
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          # 其他构建配置保持不变
+          - os: ubuntu-latest
+            output_name: minecraft-schematic-generator-termux
+            torch_index: cpu
+            cuda: false
+            termux: true
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+
+
+      - name: Upload Termux artifact
+        if: ${{ matrix.termux }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.output_name }}
+          path: termux_dist/${{ matrix.output_name }}          
