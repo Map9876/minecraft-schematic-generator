@@ -1,6 +1,5 @@
 name: Build and Release
 
-
 on:
   release:
     types: [created]
@@ -85,6 +84,7 @@ jobs:
           echo "# This file is auto-generated during build" > src/minecraft_schematic_generator/version.py
           echo "__version__ = \"${VERSION}\"" >> src/minecraft_schematic_generator/version.py
           echo "GITHUB_REPO = \"mmmfrieddough/minecraft-schematic-generator\"" >> src/minecraft_schematic_generator/version.py
+
       - name: Setup cross-compilation environment
         if: ${{ matrix.termux }}
         run: |
@@ -145,7 +145,7 @@ jobs:
           export TERMUX_BUILD=1
           mkdir -p termux_build termux_dist
 
-           # Configure cross-compilation environment variables
+          # Configure cross-compilation environment variables
           export CC=aarch64-linux-gnu-gcc
           export CXX=aarch64-linux-gnu-g++
           export AR=aarch64-linux-gnu-ar
@@ -160,7 +160,7 @@ jobs:
           sudo cp /usr/bin/qemu-aarch64-static .termux-venv/bin/
           export QEMU_LD_PREFIX=/usr/aarch64-linux-gnu
 
-           # Build using PyInstaller
+          # Build using PyInstaller
           pyinstaller --clean \
             --workpath termux_build \
             --distpath termux_dist \
@@ -175,9 +175,6 @@ jobs:
           file termux_dist/${{ matrix.output_name }} || true
           echo -e "\n===== Dynamic Dependencies ====="
           patchelf --print-needed termux_dist/${{ matrix.output_name }} || true
-
-          
-          
 
       # ========== 其他构建步骤保持不变 ==========
       - name: Build binary normal
@@ -197,9 +194,6 @@ jobs:
           name: ${{ matrix.output_name }}
           path: ${{ matrix.termux && 'termux_dist' || 'dist' }}/${{ matrix.output_name }}
 
-
-  
-
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -208,40 +202,40 @@ jobs:
           name: ${{ github.ref_name }}
           body: |
             ## Download Options
-            
+
             ### CUDA Version (Recommended)
             For optimal performance on Windows and Linux, download the CUDA-enabled version (hosted on Hugging Face due to file size limits):
             - [Windows CUDA](https://huggingface.co/mmmfrieddough/minecraft-schematic-generator/resolve/${{ github.ref_name }}/binaries/minecraft-schematic-generator.exe)
             - [Linux CUDA](https://huggingface.co/mmmfrieddough/minecraft-schematic-generator/resolve/${{ github.ref_name }}/binaries/minecraft-schematic-generator-linux)
-            
+
             **Note:** CUDA version requires an NVIDIA GPU but provides significantly faster inference.
-            
+
             ### CPU Version
             For macOS systems (best performance on Apple Silicon):
             - [macOS](dist/minecraft-schematic-generator-mac/minecraft-schematic-generator-mac)
-            
+
             CPU versions for Windows/Linux are available but not recommended due to extremely slow inference times:
             - [Windows CPU](dist/minecraft-schematic-generator.exe/minecraft-schematic-generator.exe)
             - [Linux CPU](dist/minecraft-schematic-generator-linux/minecraft-schematic-generator-linux)
-            
+
             ### Android/Termux Version
             - [Termux ARM64](dist/minecraft-schematic-generator-termux/minecraft-schematic-generator-termux)
-            
+
             ## System Requirements
             - Windows/Linux: NVIDIA GPU strongly recommended
             - macOS: Apple Silicon recommended for best performance
             - Android: ARM64 device running Termux
-            
+
             ## Server Configuration
             The server can be started with:
             ```bash
             ./minecraft-schematic-generator [options]
             ```
-            
+
             By default, it will run on http://localhost:8000
           draft: false
           prerelease: false
           files: |
             dist/minecraft-schematic-generator*/minecraft-schematic-generator*
         env:
-          GITHUB_TOKEN: ${{ secrets.GIT }}       
+          GITHUB_TOKEN: ${{ secrets.GIT }}
